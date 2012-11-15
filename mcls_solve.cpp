@@ -3,9 +3,20 @@
 class Solution
 {
 	public :
-		int z;
-		int *x, *y;
+		double z;
+		int *x, *s, *r, *y;
+		
+		Solution(const int);
 };
+
+Solution::Solution(const int size)
+{
+	z = DBL_MAX;
+	x = new int[size];
+	s = new int[size];
+	r = new int[size];
+	y = new int[size];
+}
 
 /**
  *	Parse a correctly formatted file to generate data for an instance. Basically
@@ -187,7 +198,7 @@ glp_prob* mcls_create(
 	// 	1) demands satisfaction
 	// 	2) line activity
 	// 	3) product capacity
-	glp_add_rows(pb, total * 3 + nbPeriods);
+	glp_add_rows(pb, total * 2 + nbPeriods);
 	
 	// Demands
 	for (t = 0; t < nbPeriods; t++) {
@@ -234,13 +245,15 @@ glp_prob* mcls_create(
 	// constraint is : glp + total * its_position.
 	// glp is the index for glpk's arrays, id the indices of the sparse matrix.
 	
-	int *ia, *ja;
-	double *ar;
+	int *ia = NULL, *ja = NULL;
+	double *ar = NULL;
 	
 	id = 0;
 	
-	// We have 8 constraints ranging on the full spectrum, while 3 -- with (t-1)
-	// -- skip one loop on nbPeriods.
+	// We have :
+	// 		- 4 variables ranging on the whole scale ;
+	// 		- 3 based on t - 1, thus skipping the t = 0 period ;
+	// 		- 1 skipping t = nbPeriods - 1 to ignore last period.
 	int size = (4 + 4) * total - 4 * nbProducts + 1;
 	
 	ia = new int[size];    // lines
@@ -307,6 +320,8 @@ glp_prob* mcls_create(
 			
 			}
 			
+			// - Set Yit
+			
 			++id;
 		
 			// [2] Activity
@@ -370,25 +385,143 @@ glp_prob* mcls_create(
 	return pb;
 }
 
-void mcls_bnb(glp_prob *pb, Solution &sol, const int &nbProducts, const int &nbPeriods)
-{
+void mcls_bnb(glp_prob *pb, Solution *sol, const int &nbPeriods, const int &nbProducts) {
+	// - Solve problem
 	glp_smcp parm;
 	glp_init_smcp(&parm);
-	// parm.msg_lev = GLP_MSG_OFF;
+	parm.msg_lev = GLP_MSG_OFF;
 	
 	glp_iocp parmip;
 	glp_init_iocp(&parmip);
-	// parmip.msg_lev = GLP_MSG_OFF;
+	parmip.msg_lev = GLP_MSG_OFF;
 	
 	glp_simplex(pb, &parm);
 	glp_intopt(pb, &parmip);
 	
-	int i = 0, j = 0, id = 0;
 	int total = nbProducts * nbPeriods;
+	int i = 0, j = 0, id = 0, jd = 0;
+	int min_i = 0, min_j = 0, num = 0;
+	
+	char name[10];
+	
+	int     size = 4 * total + 1;
+	int    *ind  = NULL, *ord = NULL;
+	double *val  = NULL;
+	
+	// Problem data
 	double z = glp_mip_obj_val(pb);
+	double y = 0.0, min = DBL_MAX;
 	
-	std::cout << "Optimal : " << z << std::endl;
+	bool admissible = true;
 	
+	// std::cout << "Trouvé : " << z << std::endl;
+	
+	// Admissibility, we check each Yit, and if one is not a boolean, solution
+	// is not admissible. We then force the lowest Yit to 0 then 1 and run the
+	// algorithm again, making it a tree exploration.
+	for (i = 1; i <= nbPeriods; i++) {
+		for (j = 1; j <= nbProducts; j++) {
+			id = (i - 1) * nbPeriods + j + total * 3;
+			y  = glp_mip_col_val(pb, id);
+		
+			if (y != 1.0 && y != 0.0) {
+				admissible = false;
+				
+				if (y < min) {
+					min   = y;
+					min_i = i;
+					min_j = j;
+				}
+			}
+		}
+	}
+	
+	// Problem must be feasible
+	if (z > 0.0) {
+		// Problem has no admissible solution, we branch and bind it.
+		if (!admissible && z < sol->z) {
+			glp_add_rows(pb, 1);
+			num = glp_get_num_rows(pb);
+		
+			// Build constraint row
+			ind = new int[2];
+			val = new double[2];
+		
+			ind[1] = (min_i - 1) * nbPeriods + min_j + total * 3;
+			val[1] = 1.0;
+			// Call is : pb, row_number, ja, ar
+			glp_set_mat_row(pb, num, 1, ind, val);
+		
+			// - Recursive calls
+			// = 0		
+			sprintf(name, "Y%d,%d = 0", min_i, min_j);
+		
+			// std::cout << " - Add " << name << ", " << num << "th row of the pb." << std::endl;
+		
+			glp_set_row_name(pb, num, name);
+			glp_set_row_bnds(pb, num, GLP_FX, 0, 0);
+		
+			mcls_bnb(pb, sol, nbPeriods, nbProducts);
+		
+			// = 1
+			sprintf(name, "Y%d,%d = 1", min_i, min_j);
+		
+			// std::cout << " - Add " << name << ", " << num << "th row of the pb." << std::endl;
+		
+			glp_set_row_name(pb, num, name);
+			glp_set_row_bnds(pb, num, GLP_FX, 1, 1);
+		
+			mcls_bnb(pb, sol, nbPeriods, nbProducts);
+			
+			// - Delete generated data
+			ord = new int[2];
+			ord[1] = num;
+		
+			glp_del_rows(pb, 1, ord);
+		
+			delete ind, val, ord;
+			// glp_write_lp(pb, NULL, "cplex");
+		} else if (z < sol->z) {
+			sol->z = z;
+			
+			for (i = 1; i <= nbPeriods; i++) {
+				for (j = 1; j <= nbProducts; j++) {
+					id = (i - 1) * nbPeriods + j;
+					jd = (i - 1) * nbPeriods + j;
+					sol->x[jd] = glp_mip_col_val(pb, id);
+				}
+			}
+	
+			for (i = 1; i <= nbPeriods; i++) {
+				for (j = 1; j <= nbProducts; j++) {
+					id  = (i - 1) * nbPeriods + j;
+					id += total;
+					jd  = (i - 1) * nbPeriods + j;
+					sol->s[jd] = glp_mip_col_val(pb, id);
+				}
+			}
+	
+			for (i = 1; i <= nbPeriods; i++) {
+				for (j = 1; j <= nbProducts; j++) {
+					id  = (i - 1) * nbPeriods + j;
+					id += total * 2;
+					jd  = (i - 1) * nbPeriods + j;
+					sol->r[jd] = glp_mip_col_val(pb, id);
+				}
+			}
+	
+			for (i = 1; i <= nbPeriods; i++) {
+				for (j = 1; j <= nbProducts; j++) {
+					id  = (i - 1) * nbPeriods + j;
+					id += total * 3;
+					jd  = (i - 1) * nbPeriods + j;
+					sol->y[jd] = glp_mip_col_val(pb, id);
+				}
+			}
+		}
+	}
+	
+	/*
 	for (i = 1; i <= nbPeriods; i++) {
 		for (j = 1; j <= nbProducts; j++) {
 			id = (i - 1) * nbPeriods + j;
@@ -430,6 +563,7 @@ void mcls_bnb(glp_prob *pb, Solution &sol, const int &nbProducts, const int &nbP
 	
 	glp_write_mps(pb, GLP_MPS_FILE, NULL, "mps");
 	glp_write_lp(pb, NULL, "cplex");
+	*/
 }
 
 /**
@@ -439,18 +573,16 @@ void mcls_bnb(glp_prob *pb, Solution &sol, const int &nbProducts, const int &nbP
  */
 void mcls_solve(const std::string fileName)
 {
-	std::ifstream *f;
-	
-	f = new std::ifstream(fileName.c_str());
+	std::ifstream *f = new std::ifstream(fileName.c_str());
 	
 	if (!f->good()) {
 		std::cout << "Fichier " << fileName << " non trouvé." << std::endl;
 		return;
 	}
 	
-	int nbProducts, nbPeriods;
-	int *back, *open, *stock, *capa;
-	int **demands;
+	int nbProducts = 0, nbPeriods = 0;
+	int *back = NULL, *open = NULL, *stock = NULL, *capa = NULL;
+	int **demands = NULL;
 	
 	// Generate data from file
 	mcls_parse(f, nbProducts, nbPeriods, back, open, stock, capa, demands);
@@ -461,9 +593,53 @@ void mcls_solve(const std::string fileName)
 	
 	pb = mcls_create(nbProducts, nbPeriods, back, open, stock, capa, demands);
 	
-	Solution sol;
+	Solution *sol = new Solution(nbProducts * nbPeriods);
 	
 	mcls_bnb(pb, sol, nbProducts, nbPeriods);
+	
+	// - Display found solution
+	
+	int i = 0, j = 0, id = 0;
+	
+	std::cout << "Trouvé : " << sol->z << std::endl;
+	
+	for (i = 1; i <= nbPeriods; i++) {
+		for (j = 1; j <= nbProducts; j++) {
+			id = (i - 1) * nbPeriods + j;
+			std::cout << 'X' << i << ',' << j << " : " << sol->x[id] << '\t';
+		}
+		std::cout << std::endl;
+	}
+	std::cout << std::endl;
+	
+	for (i = 1; i <= nbPeriods; i++) {
+		for (j = 1; j <= nbProducts; j++) {
+			id  = (i - 1) * nbPeriods + j;
+			std::cout << 'S' << i << ',' << j << " : " << sol->s[id] << '\t';
+		}
+		std::cout << std::endl;
+	}
+	std::cout << std::endl;
+	
+	for (i = 1; i <= nbPeriods; i++) {
+		for (j = 1; j <= nbProducts; j++) {
+			id  = (i - 1) * nbPeriods + j;
+			std::cout << 'R' << i << ',' << j << " : " << sol->r[id] << '\t';
+		}
+		std::cout << std::endl;
+	}
+	std::cout << std::endl;
+	
+	for (i = 1; i <= nbPeriods; i++) {
+		for (j = 1; j <= nbProducts; j++) {
+			id  = (i - 1) * nbPeriods + j;
+			std::cout << 'Y' << i << ',' << j << " : " << sol->y[id] << '\t';
+		}
+		std::cout << std::endl;
+	}
+	std::cout << std::endl;
+	
+	glp_write_lp(pb, NULL, "cplex");
 	
 	return;
 }
