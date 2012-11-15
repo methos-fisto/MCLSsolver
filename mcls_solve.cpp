@@ -169,7 +169,7 @@ glp_prob* mcls_create(
 	// Overture
 	for (t = 0; t < nbPeriods; t++) {
 		for (i = 0; i < nbProducts; i++) {
-			id  = t * nbProducts + 1;
+			id  = t * nbProducts + i + 1;
 			id += total * 3;
 		
 			sprintf(name, "y%d,%d", t + 1, i + 1);
@@ -185,9 +185,8 @@ glp_prob* mcls_create(
 	// - Constraints
 	// Set constraints on :
 	// 	1) demands satisfaction
-	// 	2) valid inequality
-	// 	3) line activity
-	// 	4) product capacity
+	// 	2) line activity
+	// 	3) product capacity
 	glp_add_rows(pb, total * 3 + nbPeriods);
 	
 	// Demands
@@ -203,26 +202,13 @@ glp_prob* mcls_create(
 		}
 	}
 	
-	// Valid inequality
-	for (t = 0; t < nbPeriods; t++) {
-		for (i = 0; i < nbProducts; i++) {
-			id  = t * nbProducts + i + 1;
-			id += total;
-			
-			sprintf(name, "[2](%d,%d)", t + 1, i + 1);
-			
-			glp_set_row_name(pb, id, name);
-			glp_set_row_bnds(pb, id, GLP_LO, demands[t][i], 0);
-		}
-	}
-	
 	// Product capacity limit
 	for (t = 0; t < nbPeriods; t++) {
 		for (i = 0; i < nbProducts; i++) {
 			id  = t * nbProducts + i + 1;
-			id += total * 2;
+			id += total * 1;
 			
-			sprintf(name, "[3](%d,%d)", t + 1, i + 1);
+			sprintf(name, "[2](%d,%d)", t + 1, i + 1);
 		
 			glp_set_row_name(pb, id, name);
 			glp_set_row_bnds(pb, id, GLP_UP, 0, 0);
@@ -232,9 +218,9 @@ glp_prob* mcls_create(
 	// Line activity
 	for (t = 0; t < nbPeriods; t++) {
 		id  = t + 1;
-		id += total * 3;
+		id += total * 2;
 		
-		sprintf(name, "[4](%d)", t + 1);
+		sprintf(name, "[3](%d)", t + 1);
 	
 		glp_set_row_name(pb, id, name);
 		glp_set_row_bnds(pb, id, GLP_UP, 0, capa[t]);
@@ -255,7 +241,7 @@ glp_prob* mcls_create(
 	
 	// We have 8 constraints ranging on the full spectrum, while 3 -- with (t-1)
 	// -- skip one loop on nbPeriods.
-	int size = (8 + 3) * total - 3 * nbProducts + 1;
+	int size = (4 + 4) * total - 4 * nbProducts + 1;
 	
 	ia = new int[size];    // lines
 	ja = new int[size];    // columns
@@ -284,8 +270,8 @@ glp_prob* mcls_create(
 			
 			++id;
 			
-			// [3] Activity
-			ia[id] = glp + total * 2;
+			// [2] Activity
+			ia[id] = glp + total * 1;
 			ja[id] = glp;
 			ar[id] = 1.0;
 		
@@ -293,49 +279,38 @@ glp_prob* mcls_create(
 		
 			++id;
 		
-			// [4] Capacity
-			ia[id] = t + 1 + total * 3;
+			// [3] Capacity
+			ia[id] = t + 1 + total * 2;
 			ja[id] = glp;
 			ar[id] = 1.0;
 			
-			// - Set Sit
+			// No stock or backlog during last period
+			if (t < nbPeriods - 1) {
 			
-			++id;
+				// - Set Sit
 			
-			// [1] Demands
-			ia[id] = glp;
-			ja[id] = glp + total;
-			ar[id] = -1.0;
+				++id;
 			
-			// - Set Rit
+				// [1] Demands
+				ia[id] = glp;
+				ja[id] = glp + total;
+				ar[id] = -1.0;
 			
-			++id;
+				// - Set Rit
 			
-			// [1] Demands
-			ia[id] = glp;
-			ja[id] = glp + total * 2;
-			ar[id] = 1.0;
+				++id;
 			
-			++id;
+				// [1] Demands
+				ia[id] = glp;
+				ja[id] = glp + total * 2;
+				ar[id] = 1.0;
 			
-			// [2] Inequality
-			ia[id] = glp + total;
-			ja[id] = glp + total * 2;
-			ar[id] = 1.0;
-		
-			// - Set Yit
-		
-			++id;
-		
-			// [2] Inequality
-			ia[id] = glp + total;
-			ja[id] = glp + total * 3;
-			ar[id] = (double) demands[t][i];
+			}
 			
 			++id;
 		
-			// [3] Activity
-			ia[id] = glp + total * 2;
+			// [2] Activity
+			ia[id] = glp + total * 1;
 			ja[id] = glp + total * 3;
 			ar[id] = (double) - capa[t];
 			
@@ -350,13 +325,6 @@ glp_prob* mcls_create(
 				
 				// [1] Demands
 				ia[id] = glp;
-				ja[id] = plp + total;
-				ar[id] = 1.0;
-				
-				++id;
-			
-				// [2] Inequality
-				ia[id] = glp + total;
 				ja[id] = plp + total;
 				ar[id] = 1.0;
 				
@@ -380,7 +348,13 @@ glp_prob* mcls_create(
 	*/
 	
 	std::cout << "Total : " << total << " ; id = " << id << " ; size = " << size << std::endl;
-	std::cout << "Variables : " << total * 4 << std::endl;
+	std::cout << "Variables : " << total * 4 << " ; Constraints : " << total * 3 + nbPeriods + nbProducts << std::endl;
+	std::cout << std::endl;
+	
+	for (t = 0; t < nbPeriods; t++) {
+		std::cout << 'C' << t + 1 << "   : " << capa[t] << '\t';
+	}
+	std::cout << std::endl;
 	std::cout << std::endl;
 	
 	for (t = 0; t < nbPeriods; t++) {
@@ -400,11 +374,11 @@ void mcls_bnb(glp_prob *pb, Solution &sol, const int &nbProducts, const int &nbP
 {
 	glp_smcp parm;
 	glp_init_smcp(&parm);
-	parm.msg_lev = GLP_MSG_OFF;
+	// parm.msg_lev = GLP_MSG_OFF;
 	
 	glp_iocp parmip;
 	glp_init_iocp(&parmip);
-	parmip.msg_lev = GLP_MSG_OFF;
+	// parmip.msg_lev = GLP_MSG_OFF;
 	
 	glp_simplex(pb, &parm);
 	glp_intopt(pb, &parmip);
@@ -454,8 +428,8 @@ void mcls_bnb(glp_prob *pb, Solution &sol, const int &nbProducts, const int &nbP
 	}
 	std::cout << std::endl;
 	
-	
 	glp_write_mps(pb, GLP_MPS_FILE, NULL, "mps");
+	glp_write_lp(pb, NULL, "cplex");
 }
 
 /**
