@@ -31,7 +31,7 @@ void parser_uls(std::string fichier_arg, int*& demande, int*& cout_prod, int*& c
 	delete fichier_traite;
 }
 
-void recursif(Result*& solopti,glp_prob* probref, int* ia , int* ja ,double* ar, int tail_mat , int nbPeriode){
+void recursif_uls(Result*& solopti,glp_prob* probref, int* ia , int* ja ,double* ar, int tail_mat , int nbPeriode){
 
 	//Result* retour;
     glp_smcp parm;
@@ -99,11 +99,11 @@ void recursif(Result*& solopti,glp_prob* probref, int* ia , int* ja ,double* ar,
 				//std::cout << "hola" << std::endl;
 				glp_set_row_bnds(prob_temp, temp_ia[tail_mat], GLP_FX, 0.0f, 0.0f);
 				//std::cout << "hola" << std::endl;
-				recursif(solopti,prob_temp, temp_ia , temp_ja , temp_ar, tail_mat + 1 , nbPeriode);
+				recursif_uls(solopti,prob_temp, temp_ia , temp_ja , temp_ar, tail_mat + 1 , nbPeriode);
 				//std::cout << "redef" << std::endl;
 				glp_set_row_bnds(prob_temp, temp_ia[tail_mat], GLP_FX, 1.0f, 1.0f);
 				
-				recursif(solopti,prob_temp, temp_ia , temp_ja , temp_ar, tail_mat + 1 , nbPeriode);
+				recursif_uls(solopti,prob_temp, temp_ia , temp_ja , temp_ar, tail_mat + 1 , nbPeriode);
 				//std::cout << "remonte" << std::endl;
 				delete[] x;
 			delete[] y;
@@ -127,7 +127,7 @@ void recursif(Result*& solopti,glp_prob* probref, int* ia , int* ja ,double* ar,
 
 }
 
-int main(int argc, char *argv[]){
+int solve_uls(std::string fichier_arg){
 
 	int* demande;
 int* 	cout_prod;
@@ -135,11 +135,9 @@ int*  cout_stock;
 int*  cout_acti;
 	int nbPeriode;
 	int j;
-	if(argc == 2){ // si un nom de fichier pass en argument
-        parser_uls(argv[1],demande, cout_prod, cout_stock, cout_acti,nbPeriode);  // on le rcupere
-    }else{
-    parser_uls("exemple.dat",demande, cout_prod, cout_stock, cout_acti,nbPeriode); // sinon on prend exemple.dat par dfaut
-    }
+	 // si un nom de fichier pass en argument
+        parser_uls(fichier_arg,demande, cout_prod, cout_stock, cout_acti,nbPeriode);  // on le rcupere
+    
 	int* M = new int[nbPeriode];
 	for(j=0;j<nbPeriode;j++){
 		M[j] = 0;
@@ -270,7 +268,7 @@ int*  cout_acti;
 	
 	Result* solopti = new Result(12000, new int[4]);
 	//std::cout << "hola" << std::endl;
-	recursif(solopti, prob , ia , ja , ar, 7*nbPeriode , nbPeriode);
+	recursif_uls(solopti, prob , ia , ja , ar, 7*nbPeriode , nbPeriode);
 	
 	std::cout <<"valeur optimale : " << solopti->val() << std::endl << std::endl << "Plan de Production : " <<std::endl;
 	int* x = solopti->solution();
