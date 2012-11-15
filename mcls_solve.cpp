@@ -18,7 +18,7 @@ t = nb periods
 int[i] backlogging cost
 int[i] costs of opening to produce any item i
 int[i] cost of storing a i
-int[i] production capacity of i per period
+int[t] production capacity during period t
 
 int[t][i] matrix of demands per product per period
 
@@ -114,8 +114,8 @@ glp_prob* mcls_create(
 	// - Set variables
 	// 4 spans of nbProducts * nbPeriods variables :
 	//	1) production
-	// 	2) backlogs
-	// 	3) stocks
+	// 	2) stocks
+	// 	3) backlogs
 	// 	4) overture
 	glp_add_cols(pb, total * 4);
 	
@@ -186,9 +186,9 @@ glp_prob* mcls_create(
 	// Set constraints on :
 	// 	1) demands satisfaction
 	// 	2) valid inequality
-	// 	3) product capacity
-	// 	4) line activity
-	glp_add_rows(pb, total * 4);
+	// 	3) line activity
+	// 	4) product capacity
+	glp_add_rows(pb, total * 3 + nbPeriods);
 	
 	// Demands
 	for (t = 0; t < nbPeriods; t++) {
@@ -219,27 +219,25 @@ glp_prob* mcls_create(
 	// Product capacity limit
 	for (t = 0; t < nbPeriods; t++) {
 		for (i = 0; i < nbProducts; i++) {
-			id  = t * nbProducts + 1;
+			id  = t * nbProducts + i + 1;
 			id += total * 2;
 			
 			sprintf(name, "[3](%d,%d)", t + 1, i + 1);
 		
 			glp_set_row_name(pb, id, name);
-			glp_set_row_bnds(pb, id, GLP_UP, 0, capa[t]);
+			glp_set_row_bnds(pb, id, GLP_UP, 0, 0);
 		}
 	}
 	
 	// Line activity
 	for (t = 0; t < nbPeriods; t++) {
-		for (i = 0; i < nbProducts; i++) {
-			id  = t * nbProducts + 1;
-			id += total * 3;
-			
-			sprintf(name, "[4](%d,%d)", t + 1, i + 1);
+		id  = t + 1;
+		id += total * 3;
 		
-			glp_set_row_name(pb, id, name);
-			glp_set_row_bnds(pb, id, GLP_UP, 0, 0);
-		}
+		sprintf(name, "[4](%d)", t + 1);
+	
+		glp_set_row_name(pb, id, name);
+		glp_set_row_bnds(pb, id, GLP_UP, 0, capa[t]);
 	}
 	
 	// - Problem's matrix
@@ -256,8 +254,8 @@ glp_prob* mcls_create(
 	id = 0;
 	
 	// We have 8 constraints ranging on the full spectrum, while 3 -- with (t-1)
-	// -- skip one loop on nbProducts.
-	int size = (8 + 3) * total - 3 * nbProducts;
+	// -- skip one loop on nbPeriods.
+	int size = (8 + 3) * total - 3 * nbProducts + 1;
 	
 	ia = new int[size];    // lines
 	ja = new int[size];    // columns
@@ -270,10 +268,10 @@ glp_prob* mcls_create(
 	// Set coefs
 	for (t = 0; t < nbPeriods; t++) {
 		// Period index
-		ylp = t * nbProducts;
+		ylp = t * nbProducts + 1;
 		
 		for (i = 0; i < nbProducts; i++) {
-			glp = ylp + i + 1;
+			glp = ylp + i;
 			
 			// - Set Xit
 			
@@ -286,15 +284,17 @@ glp_prob* mcls_create(
 			
 			++id;
 			
-			// [3] Capacity
+			// [3] Activity
 			ia[id] = glp + total * 2;
 			ja[id] = glp;
 			ar[id] = 1.0;
-			
+		
+			// Set Sum_t(Xi)
+		
 			++id;
-			
-			// [4] Activity
-			ia[id] = glp + total * 3;
+		
+			// [4] Capacity
+			ia[id] = t + 1 + total * 3;
 			ja[id] = glp;
 			ar[id] = 1.0;
 			
@@ -334,8 +334,8 @@ glp_prob* mcls_create(
 			
 			++id;
 		
-			// [4] Activity
-			ia[id] = glp + total * 3;
+			// [3] Activity
+			ia[id] = glp + total * 2;
 			ja[id] = glp + total * 3;
 			ar[id] = (double) - capa[t];
 			
@@ -381,8 +381,17 @@ glp_prob* mcls_create(
 	
 	std::cout << "Total : " << total << " ; id = " << id << " ; size = " << size << std::endl;
 	std::cout << "Variables : " << total * 4 << std::endl;
+	std::cout << std::endl;
 	
-	glp_load_matrix(pb, id - 1, ia, ja, ar);
+	for (t = 0; t < nbPeriods; t++) {
+		for (i = 0; i < nbProducts; i++) {
+			std::cout << 'D' << t + 1 << ',' << i + 1 << " : " << demands[t][i] << '\t';
+		}
+		std::cout << std::endl;
+	}
+	std::cout << std::endl;
+	
+	glp_load_matrix(pb, id, ia, ja, ar);
 	
 	return pb;
 }
