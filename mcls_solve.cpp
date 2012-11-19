@@ -143,8 +143,8 @@ glp_prob* mcls_create(
 			glp_set_col_name(pb, id, name);
 			glp_set_col_bnds(pb, id, GLP_LO, 0, 0);
 			glp_set_col_kind(pb, id, GLP_IV);
-			// Cost is nil for every period
-			glp_set_obj_coef(pb, id, 0);
+			// Cost is 1 for every period
+			glp_set_obj_coef(pb, id, 0.0);
 		}
 	}
 	
@@ -216,7 +216,7 @@ glp_prob* mcls_create(
 		}
 	}
 	
-	// Product capacity limit
+	// Line activity
 	for (t = 0; t < nbPeriods; t++) {
 		for (i = 0; i < nbProducts; i++) {
 			id  = t * nbProducts + i + 1;
@@ -229,7 +229,7 @@ glp_prob* mcls_create(
 		}
 	}
 	
-	// Line activity
+	// Product capacity limit
 	for (t = 0; t < nbPeriods; t++) {
 		id  = t + 1;
 		id += total * 2;
@@ -388,7 +388,17 @@ glp_prob* mcls_create(
 	return pb;
 }
 
-void mcls_bnb(glp_prob *pb, Solution *sol, const int &nbPeriods, const int &nbProducts, std::ofstream *p) {
+void mcls_bnb(
+	glp_prob *old, Solution *sol
+	, const int &nbPeriods, const int &nbProducts
+	, std::ofstream *p
+) {
+	glp_prob *pb = NULL;
+	
+	pb = glp_create_prob();
+	
+	glp_copy_prob(pb, old, GLP_ON);
+
 	// - Solve problem
 	glp_smcp parm;
 	glp_init_smcp(&parm);
@@ -401,7 +411,16 @@ void mcls_bnb(glp_prob *pb, Solution *sol, const int &nbPeriods, const int &nbPr
 	glp_simplex(pb, &parm);
 	glp_intopt(pb, &parmip);
 	
-	// Keep value for instance instead of recursive step
+	/*
+	if (sol->cpt == 0) {
+		glp_write_lp(pb, NULL, "cplex0");
+	}
+	
+	if (sol->cpt == 8) {
+		glp_write_lp(pb, NULL, "cplex1");
+	}
+	*/
+	
 	int save = 0;
 	save = ++sol->cpt;
 	
@@ -421,7 +440,7 @@ void mcls_bnb(glp_prob *pb, Solution *sol, const int &nbPeriods, const int &nbPr
 	bool admissible = true;
 	
 	*p << save << " [label=\"" << z << '"';
-
+	
 	// Admissibility, we check each Yit, and if one is not a boolean,
 	// solution is not admissible. We then force the lowest Yit to 0 then 1
 	// and run the algorithm again, making it a tree exploration.
@@ -461,8 +480,8 @@ void mcls_bnb(glp_prob *pb, Solution *sol, const int &nbPeriods, const int &nbPr
 		if (!admissible) {
 			*p << "];\n";
 			
-			glp_add_rows(pb, 1);
-			num = glp_get_num_rows(pb);
+			num = glp_add_rows(pb, 1);
+			// num = glp_get_num_rows(pb);
 		
 			// Build constraint row
 			ind = new int[2];
@@ -477,7 +496,7 @@ void mcls_bnb(glp_prob *pb, Solution *sol, const int &nbPeriods, const int &nbPr
 			
 			// = 0		
 			sprintf(name, "Y%d,%d = 0", min_i, min_j);
-		
+			
 			std::cout << '(' << sol->cpt << ')' << " - Add " << name << std::endl;
 			
 			*p << '\t' << save << " -- " << sol->cpt + 1 << " [label=\"" << name << "\"];\n";
@@ -512,7 +531,6 @@ void mcls_bnb(glp_prob *pb, Solution *sol, const int &nbPeriods, const int &nbPr
 			delete ind;
 			delete val;
 			delete ord;
-			
 		} else {
 			sol->z = z;
 			*p << "shape=rectangle, color=\"blue\", fontcolor=\"blue\"];\n";
@@ -560,6 +578,8 @@ void mcls_bnb(glp_prob *pb, Solution *sol, const int &nbPeriods, const int &nbPr
 			*p << "shape=rectangle, color=\"red\", fontcolor=\"red\"];\n";
 		}
 	}
+	
+	glp_delete_prob(pb);
 }
 
 /**
@@ -570,7 +590,7 @@ void mcls_bnb(glp_prob *pb, Solution *sol, const int &nbPeriods, const int &nbPr
 void mcls_solve(const std::string fileName)
 {
 	std::ifstream *f = new std::ifstream(fileName.c_str());
-	std::ofstream *p = new std::ofstream("ppa4.gv");
+	std::ofstream *p = new std::ofstream("ppa8.gv");
 	
 	if (!f->good()) {
 		std::cout << "Fichier " << fileName << " non trouvé." << std::endl;
@@ -601,7 +621,7 @@ void mcls_solve(const std::string fileName)
 	*p << "}";
 	p->close();
 	
-	system("dot -T png -o ppa40.png ppa4.gv");
+	// system("dot -T png -o ppa40.png ppa4.gv");
 	
 	// - Display found solution
 	
@@ -653,7 +673,7 @@ void mcls_solve(const std::string fileName)
 
 int main()
 {
-	mcls_solve("ppa4.crap");
+	mcls_solve("ppa8.crap");
 	
 	return 1;
 }
