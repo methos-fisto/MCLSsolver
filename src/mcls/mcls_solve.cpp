@@ -390,7 +390,7 @@ glp_prob* mcls_create(
 	// 	2) line activity
 	// 	3) valid inequality
 	// 	4) product capacity
-	glp_add_rows(pb, total * 4 + nbPeriods);
+	glp_add_rows(pb, total * 3 + nbPeriods);
 	
 	// Demands
 	for (t = 0; t < nbPeriods; t++) {
@@ -456,10 +456,10 @@ glp_prob* mcls_create(
 	id = 0;
 	
 	// We have :
-	// 		- 6 variables ranging on the whole scale ;
+	// 		- 5 variables ranging on the whole scale ;
 	// 		- 3 based on t - 1, thus skipping the t = 0 period ;
-	// 		- 2 skipping t = nbPeriods - 1 to ignore last period.
-	int size = 11 * total - 5 * nbProducts + 1;
+	// 		- 3 skipping t = nbPeriods - 1 to ignore last period.
+	int size = 11 * total - 6 * nbProducts + 1;
 	
 	ia = new int[size];    // lines
 	ja = new int[size];    // columns
@@ -503,18 +503,8 @@ glp_prob* mcls_create(
 			ja[id] = glp;
 			ar[id] = 1.0;
 			
-			// - Set Rit
-		
-			++id;
-			
-			// [3] Valid
-			ia[id] = glp + total * 2;
-			ja[id] = glp + total * 2;
-			ar[id] = 1.0;
-			
 			// No stock or backlog during last period
 			if (t < nbPeriods - 1) {
-			
 				// - Set Sit
 			
 				++id;
@@ -530,6 +520,13 @@ glp_prob* mcls_create(
 			
 				// [1] Demands
 				ia[id] = glp;
+				ja[id] = glp + total * 2;
+				ar[id] = 1.0;
+			
+				++id;
+				
+				// [3] Valid
+				ia[id] = glp + total * 2;
 				ja[id] = glp + total * 2;
 				ar[id] = 1.0;
 			
