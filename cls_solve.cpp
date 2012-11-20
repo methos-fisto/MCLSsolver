@@ -35,7 +35,7 @@ void parser_cls(std::string fichier_arg, int*& demande, int*& cout_prod, int*& c
 	delete fichier_traite;
 }
 
-void recursif_cls(Result*& solopti,glp_prob* probref, int* ia , int* ja ,double* ar, int tail_mat , int nbPeriode){
+void recursif_cls(Result*& solopti,glp_prob* probref, int* ia , int* ja ,double* ar, int tail_mat , int nbPeriode, int& appels){
 
 	//Result* retour;
     glp_smcp parm;
@@ -53,13 +53,14 @@ void recursif_cls(Result*& solopti,glp_prob* probref, int* ia , int* ja ,double*
 
         glp_simplex(probref,&parm);
         glp_intopt(probref,&parmip);
-		std::cout << "resolu" << std::endl;
+		//std::cout << "resolu" << std::endl;
+		appels++;
 		int* x = new int[nbPeriode];
 		double* y = new double[nbPeriode];
 		int plusfaible = nbPeriode+1;
 		bool admissible = true;
 		double z = glp_mip_obj_val(probref);
-		std::cout << z << "trouvé\n";
+		//std::cout << z << "trouvé\n";
 		if( z!=0 ){
 		if(z < solopti->val())
 		{	//std::cout << "interet" << std::endl;
@@ -71,12 +72,12 @@ void recursif_cls(Result*& solopti,glp_prob* probref, int* ia , int* ja ,double*
 				}
 			}
 			for(i=0;i<nbPeriode;i++) std::cout << x[i] << " ";
-			std::cout << "\n";
+			//std::cout << "\n";
 			for(i=0;i<nbPeriode;i++) std::cout << y[i] << " ?";
 			for(i=0;i< nbPeriode; i++){
 				if((y[i] != 0 ) && (y[i] != 1)){
 					admissible = false;
-					std::cout << "non admissible\n";
+					//std::cout << "non admissible\n";
 					if(plusfaible != nbPeriode+1){
 						if(y[i] < y[plusfaible]){
 						plusfaible= i;
@@ -84,7 +85,7 @@ void recursif_cls(Result*& solopti,glp_prob* probref, int* ia , int* ja ,double*
 					}else{
 						plusfaible= i;
 					}
-					std::cout << "plus faible = " << plusfaible << "\n";
+					//std::cout << "plus faible = " << plusfaible << "\n";
 				}
 			}
 			if(admissible){
@@ -92,7 +93,7 @@ void recursif_cls(Result*& solopti,glp_prob* probref, int* ia , int* ja ,double*
 				solopti->set_val(z);
 				solopti->set_sol(x);
 			}else{
-				std::cout << "branch" << std::endl;
+				//std::cout << "branch" << std::endl;
 				glp_prob *prob_temp;
 				//std::cout << "hola" << std::endl;
 				prob_temp = glp_create_prob();
@@ -115,11 +116,11 @@ void recursif_cls(Result*& solopti,glp_prob* probref, int* ia , int* ja ,double*
 				glp_set_row_bnds(prob_temp, temp_ia[tail_mat], GLP_FX, 0.0f, 0.0f);
 				//std::cout << "hola" << std::endl;
 				recursif_cls(solopti,prob_temp, temp_ia , temp_ja , temp_ar, tail_mat + 1 , nbPeriode);
-				std::cout << "redef" << std::endl;
+				//std::cout << "redef" << std::endl;
 				glp_set_row_bnds(prob_temp, temp_ia[tail_mat], GLP_FX, 1.0f, 1.0f);
 				
 				recursif_cls(solopti,prob_temp, temp_ia , temp_ja , temp_ar, tail_mat + 1 , nbPeriode);
-				std::cout << "remonte" << std::endl;
+				//std::cout << "remonte" << std::endl;
 				delete[] x;
 			delete[] y;
 			delete[] temp_ia;
@@ -150,7 +151,8 @@ int*  cout_acti;
 int* capacite;
 	int nbPeriode;
 	int j;
- // si un nom de fichier pass en argument
+	int appels = 0;
+	// si un nom de fichier pass en argument
         parser_cls(fichier_arg ,demande, cout_prod, cout_stock, cout_acti, capacite,nbPeriode);  // on le rcupere
     
 	/*int* M = new int[nbPeriode];
@@ -165,7 +167,7 @@ int* capacite;
 	//for(j=0;j<nbPeriode;j++){
 		//std::cout << M[j] << std::endl;
 	//}
-	for(j=0;j<nbPeriode;j++){
+	/*for(j=0;j<nbPeriode;j++){
 	std::cout << demande[j] << " ";
 	}
 	std::cout << std::endl;
@@ -185,7 +187,7 @@ int* capacite;
 	}
 	std::cout << std::endl;
 	std::cout << std::endl;
-	std::cout << std::endl;
+	std::cout << std::endl;*/
 	////////////////////////
 	//     code GLPK      //
 	////////////////////////
@@ -286,12 +288,13 @@ int* capacite;
 	
 	Result* solopti = new Result(12000, new int[4]);
 	//std::cout << "hola" << std::endl;
-	recursif_cls(solopti, prob , ia , ja , ar, 7*nbPeriode , nbPeriode);
-	
+	recursif_cls(solopti, prob , ia , ja , ar, 7*nbPeriode , nbPeriode, appels);
+	std::cout << "Nombre de résolutions : " << appels << std::endl;
 	std::cout <<"valeur optimale : " << solopti->val() << std::endl << std::endl << "Plan de Production : " <<std::endl;
 	int* x = solopti->solution();
 	for(int i = 0 ; i < nbPeriode; i++){
 		std::cout << "x[" << i +1 << "]= " << x[i] << std::endl;
 	}
+	
 	
 }

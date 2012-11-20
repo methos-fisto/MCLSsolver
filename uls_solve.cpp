@@ -31,7 +31,7 @@ void parser_uls(std::string fichier_arg, int*& demande, int*& cout_prod, int*& c
 	delete fichier_traite;
 }
 
-void recursif_uls(Result*& solopti,glp_prob* probref, int* ia , int* ja ,double* ar, int tail_mat , int nbPeriode){
+void recursif_uls(Result*& solopti,glp_prob* probref, int* ia , int* ja ,double* ar, int tail_mat , int nbPeriode, int& appels){
 
 	//Result* retour;
     glp_smcp parm;
@@ -50,6 +50,7 @@ void recursif_uls(Result*& solopti,glp_prob* probref, int* ia , int* ja ,double*
         glp_simplex(probref,&parm);
         glp_intopt(probref,&parmip);
 		//std::cout << "resolu" << std::endl;
+		appels++;
 		int* x = new int[nbPeriode];
 		double* y = new double[nbPeriode];
 		int plusfaible = nbPeriode+1;
@@ -135,6 +136,7 @@ int*  cout_stock;
 int*  cout_acti;
 	int nbPeriode;
 	int j;
+	int appels = 0;
 	 // si un nom de fichier pass en argument
         parser_uls(fichier_arg,demande, cout_prod, cout_stock, cout_acti,nbPeriode);  // on le rcupere
     
@@ -150,7 +152,7 @@ int*  cout_acti;
 	//for(j=0;j<nbPeriode;j++){
 		//std::cout << M[j] << std::endl;
 	//}
-	for(j=0;j<nbPeriode;j++){
+	/*for(j=0;j<nbPeriode;j++){
 	std::cout << demande[j] << " ";
 	}
 	std::cout << std::endl;
@@ -167,7 +169,7 @@ int*  cout_acti;
 	}
 	std::cout << std::endl;
 	std::cout << std::endl;
-	std::cout << std::endl;
+	std::cout << std::endl;*/
 	////////////////////////
 	//     code GLPK      //
 	////////////////////////
@@ -268,8 +270,8 @@ int*  cout_acti;
 	
 	Result* solopti = new Result(12000, new int[4]);
 	//std::cout << "hola" << std::endl;
-	recursif_uls(solopti, prob , ia , ja , ar, 7*nbPeriode , nbPeriode);
-	
+	recursif_uls(solopti, prob , ia , ja , ar, 7*nbPeriode , nbPeriode, appels);
+	std::cout << "Nombre de résolutions : " << appels << std::endl;
 	std::cout <<"valeur optimale : " << solopti->val() << std::endl << std::endl << "Plan de Production : " <<std::endl;
 	int* x = solopti->solution();
 	for(int i = 0 ; i < nbPeriode; i++){
