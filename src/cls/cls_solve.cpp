@@ -1,11 +1,6 @@
-//#include "uls_solve.h"
-#include <iostream>
-#include <fstream>
-#include <cstring>
-#include <string>
-#include "glpk.h"
-#include "result.h"
-void parser_cls(std::string fichier_arg, int*& demande, int*& cout_prod, int*& cout_stock,int*& cout_acti, int*& capacite, int& nbPeriode){
+#include "cls_solve.h"
+
+void cls_parse(std::string fichier_arg, int*& demande, int*& cout_prod, int*& cout_stock,int*& cout_acti, int*& capacite, int& nbPeriode){
 
 	int i;
 	std::ifstream* fichier_traite;
@@ -35,7 +30,7 @@ void parser_cls(std::string fichier_arg, int*& demande, int*& cout_prod, int*& c
 	delete fichier_traite;
 }
 
-void recursif_cls(Result*& solopti,glp_prob* probref, int* ia , int* ja ,double* ar, int tail_mat , int nbPeriode, int& appels){
+void cls_recursif(Result*& solopti,glp_prob* probref, int* ia , int* ja ,double* ar, int tail_mat , int nbPeriode, int& appels){
 
 	//Result* retour;
     glp_smcp parm;
@@ -115,11 +110,11 @@ void recursif_cls(Result*& solopti,glp_prob* probref, int* ia , int* ja ,double*
 				//std::cout << "hola" << std::endl;
 				glp_set_row_bnds(prob_temp, temp_ia[tail_mat], GLP_FX, 0.0f, 0.0f);
 				//std::cout << "hola" << std::endl;
-				recursif_cls(solopti,prob_temp, temp_ia , temp_ja , temp_ar, tail_mat + 1 , nbPeriode);
+				cls_recursif(solopti,prob_temp, temp_ia , temp_ja , temp_ar, tail_mat + 1 , nbPeriode, appels);
 				//std::cout << "redef" << std::endl;
 				glp_set_row_bnds(prob_temp, temp_ia[tail_mat], GLP_FX, 1.0f, 1.0f);
 				
-				recursif_cls(solopti,prob_temp, temp_ia , temp_ja , temp_ar, tail_mat + 1 , nbPeriode);
+				cls_recursif(solopti,prob_temp, temp_ia , temp_ja , temp_ar, tail_mat + 1 , nbPeriode, appels);
 				//std::cout << "remonte" << std::endl;
 				delete[] x;
 			delete[] y;
@@ -142,7 +137,7 @@ void recursif_cls(Result*& solopti,glp_prob* probref, int* ia , int* ja ,double*
 
 }
 
-int solve_cls(std::string fichier_arg){
+void cls_solve(std::string fichier_arg){
 
 	int* demande;
 int* 	cout_prod;
@@ -153,7 +148,7 @@ int* capacite;
 	int j;
 	int appels = 0;
 	// si un nom de fichier pass en argument
-        parser_cls(fichier_arg ,demande, cout_prod, cout_stock, cout_acti, capacite,nbPeriode);  // on le rcupere
+        cls_parse(fichier_arg ,demande, cout_prod, cout_stock, cout_acti, capacite,nbPeriode);  // on le rcupere
     
 	/*int* M = new int[nbPeriode];
 	for(j=0;j<nbPeriode;j++){
@@ -288,7 +283,7 @@ int* capacite;
 	
 	Result* solopti = new Result(12000, new int[4]);
 	//std::cout << "hola" << std::endl;
-	recursif_cls(solopti, prob , ia , ja , ar, 7*nbPeriode , nbPeriode, appels);
+	cls_recursif(solopti, prob , ia , ja , ar, 7*nbPeriode , nbPeriode, appels);
 	std::cout << "Nombre de résolutions : " << appels << std::endl;
 	std::cout <<"valeur optimale : " << solopti->val() << std::endl << std::endl << "Plan de Production : " <<std::endl;
 	int* x = solopti->solution();
