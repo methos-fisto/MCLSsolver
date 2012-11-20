@@ -6,6 +6,9 @@
 #include <string>
 
 #include <glpk.h>
+#include <float.h>
+#include <math.h>
+#include <stdlib.h>
 
 /*
 void mcls_solve(const std::string);
