@@ -5,7 +5,7 @@ class Solution
 	public :
 		double z;
 		int *x, *s, *r, *y;
-		int t, i, cpt;
+		int t, n, cpt;
 		
 		Solution(const int, const int);
 		
@@ -20,9 +20,9 @@ Solution::Solution(const int nbPeriods, const int nbProducts)
 	z = DBL_MAX;
 	
 	t = nbPeriods;
-	i = nbProducts;
+	n = nbProducts;
 	
-	int size = t * i;
+	int size = t * n;
 	
 	x = new int[size];
 	s = new int[size];
@@ -40,16 +40,10 @@ void Solution::show()
 	std::cout << "Trouvé z = " << z << " en " << cpt << " itérations." << std::endl;
 	
 	for (i = 1; i <= t; i++) {
-		for (j = 1; j <= i; j++) {
+		for (j = 1; j <= n; j++) {
 			id = (i - 1) * t + j;
 			
-			std::cout << 'x' << i << ',' << j << " = " << x[id];
-			
-			if (j == i) {
-				std::cout << '\n';
-			} else {
-				std::cout << '\t';
-			}
+			std::cout << 'x' << i << ',' << j << " = " << x[id] << '\t';
 		}
 		
 		std::cout << '\n';
@@ -58,16 +52,10 @@ void Solution::show()
 	std::cout << '\n';
 	
 	for (i = 1; i <= t; i++) {
-		for (j = 1; j <= i; j++) {
+		for (j = 1; j <= n; j++) {
 			id = (i - 1) * t + j;
 			
-			std::cout << 's' << i << ',' << j << " = " << s[id];
-			
-			if (j == i) {
-				std::cout << '\n';
-			} else {
-				std::cout << '\t';
-			}
+			std::cout << 's' << i << ',' << j << " = " << s[id] << '\t';
 		}
 		
 		std::cout << '\n';
@@ -76,16 +64,10 @@ void Solution::show()
 	std::cout << '\n';
 	
 	for (i = 1; i <= t; i++) {
-		for (j = 1; j <= i; j++) {
+		for (j = 1; j <= n; j++) {
 			id = (i - 1) * t + j;
 			
-			std::cout << 'r' << i << ',' << j << " = " << r[id];
-			
-			if (j == i) {
-				std::cout << '\n';
-			} else {
-				std::cout << '\t';
-			}
+			std::cout << 'r' << i << ',' << j << " = " << r[id] << '\t';
 		}
 		
 		std::cout << '\n';
@@ -94,16 +76,10 @@ void Solution::show()
 	std::cout << '\n';
 	
 	for (i = 1; i <= t; i++) {
-		for (j = 1; j <= i; j++) {
+		for (j = 1; j <= n; j++) {
 			id = (i - 1) * t + j;
 			
-			std::cout << 'y' << i << ',' << j << " = " << y[id];
-			
-			if (j == i) {
-				std::cout << '\n';
-			} else {
-				std::cout << '\t';
-			}
+			std::cout << 'y' << i << ',' << j << " = " << y[id] << '\t';
 		}
 		
 		std::cout << '\n';
@@ -114,6 +90,8 @@ void Solution::show()
 
 /**
  *	Write solution as a LaTeX array.
+ *
+ *	@param char* filename to write into
  */
 void Solution::write(const char* tex)
 {
@@ -135,7 +113,7 @@ void Solution::write(const char* tex)
 	*q << '}' << std::endl;
 	
 	for (i = 1; i <= t; i++) {
-		for (j = 1; j <= i; j++) {
+		for (j = 1; j <= n; j++) {
 			id = (i - 1) * t + j;
 			
 			*q << "x_" << i << '^' << j << '&' << x[id];
@@ -153,7 +131,7 @@ void Solution::write(const char* tex)
 	*q << texnl;
 	
 	for (i = 1; i <= t; i++) {
-		for (j = 1; j <= i; j++) {
+		for (j = 1; j <= n; j++) {
 			id = (i - 1) * t + j;
 			
 			*q << "s_" << i << '^' << j << '&' << s[id];
@@ -172,7 +150,7 @@ void Solution::write(const char* tex)
 	
 	
 	for (i = 1; i <= t; i++) {
-		for (j = 1; j <= i; j++) {
+		for (j = 1; j <= n; j++) {
 			id = (i - 1) * t + j;
 			
 			*q << "r_" << i << '^' << j << '&' << r[id];
@@ -190,7 +168,7 @@ void Solution::write(const char* tex)
 	*q << texnl;
 	
 	for (i = 1; i <= t; i++) {
-		for (j = 1; j <= i; j++) {
+		for (j = 1; j <= n; j++) {
 			id = (i - 1) * t + j;
 			
 			*q << "y_" << i << '^' << j << '&' << y[id];
@@ -434,7 +412,7 @@ glp_prob* mcls_create(
 	// Product capacity limit
 	for (t = 0; t < nbPeriods; t++) {
 		id  = t + 1;
-		id += total * 2;
+		id += total * 3;
 		
 		sprintf(name, "[4](%d)", t + 1);
 	
